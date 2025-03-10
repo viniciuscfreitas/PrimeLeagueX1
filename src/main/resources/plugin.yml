@@ -1,0 +1,27 @@
+name: PrimeLeagueX1
+main: me.freitas.x1.PrimeLeagueX1
+version: 1.0
+author: Freitas
+softdepend: [PrimeLeagueElo]
+description: Plugin de sistema de duelos 1v1 para o servidor PrimeLeague.
+
+commands:
+  x1:
+    description: Comando principal do sistema de duelos
+    usage: /x1 <subcomando>
+    aliases: [duelo]
+    permission: primeleaguex1.use
+    permission-message: "Você não tem permissão para usar este comando!"
+
+permissions:
+  primeleaguex1.use:
+    description: Permissão para usar o sistema de X1
+    default: true
+
+  primeleaguex1.admin:
+    description: Permissão para configurar arenas e gerenciar duelos
+    default: op
+
+  primeleaguex1.camarote:
+    description: Permissão para assistir duelos no camarote
+    default: true
