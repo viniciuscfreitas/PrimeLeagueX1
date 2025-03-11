@@ -13,6 +13,7 @@
     import org.bukkit.entity.Player;
     import org.bukkit.Material;
     import org.bukkit.event.Listener;
+    import org.bukkit.event.inventory.InventoryCloseEvent;
     import org.bukkit.inventory.Inventory;
     import org.bukkit.inventory.ItemStack;
     import org.bukkit.inventory.meta.ItemMeta;
@@ -117,30 +118,46 @@
             abrirMenuSelecao(player, target);
         }
 
+        @EventHandler
+        public void onInventoryClose(InventoryCloseEvent event) {
+            Player player = (Player) event.getPlayer();
+            Inventory menu = event.getInventory();
+
+            // Verifica se o menu fechado é o de seleção do X1
+            if (menu.getTitle().equals(ChatColor.DARK_BLUE + "Usar arena?")) {
+                if (desafiosPendentes.containsKey(player.getName())) {
+                    desafiosPendentes.remove(player.getName());
+                    player.sendMessage(ChatColor.RED + "❌ Você fechou o menu do X1. Seu desafio foi cancelado.");
+                }
+            }
+        }
+
         /**
          * Abre um menu para o jogador escolher entre X1 na Arena ou no Local Atual.
          */
         private void abrirMenuSelecao(Player player, Player desafiado) {
-            Inventory menu = Bukkit.createInventory(null, 9, ChatColor.DARK_BLUE + "Escolha o Local do X1");
+            Inventory menu = Bukkit.createInventory(null, 9, ChatColor.DARK_BLUE + "Usar arena?");
 
-            ItemStack arenaItem = new ItemStack(Material.IRON_SWORD);
-            ItemMeta arenaMeta = arenaItem.getItemMeta();
-            if (arenaMeta != null) {
-                arenaMeta.setDisplayName(ChatColor.GREEN + "Arena Fixa");
-                arenaMeta.setLore(Arrays.asList(ChatColor.YELLOW + "O duelo acontecerá na arena fixa!"));
-                arenaItem.setItemMeta(arenaMeta);
+            // Lã verde para "Sim" (Arena Fixa)
+            ItemStack simItem = new ItemStack(Material.WOOL, 1, (short) 5); // Cor verde
+            ItemMeta simMeta = simItem.getItemMeta();
+            if (simMeta != null) {
+                simMeta.setDisplayName(ChatColor.GREEN + "✔ Sim");
+                simMeta.setLore(Arrays.asList(ChatColor.YELLOW + "O duelo acontecerá na arena do servidor!"));
+                simItem.setItemMeta(simMeta);
             }
 
-            ItemStack localItem = new ItemStack(Material.GRASS);
-            ItemMeta localMeta = localItem.getItemMeta();
-            if (localMeta != null) {
-                localMeta.setDisplayName(ChatColor.AQUA + "Local Atual");
-                localMeta.setLore(Arrays.asList(ChatColor.YELLOW + "O duelo acontecerá onde vocês estão!"));
-                localItem.setItemMeta(localMeta);
+            // Lã vermelha para "Não" (Local Atual)
+            ItemStack naoItem = new ItemStack(Material.WOOL, 1, (short) 14); // Cor vermelha
+            ItemMeta naoMeta = naoItem.getItemMeta();
+            if (naoMeta != null) {
+                naoMeta.setDisplayName(ChatColor.RED + "✖ Não");
+                naoMeta.setLore(Arrays.asList(ChatColor.YELLOW + "O duelo acontecerá onde vocês estão!"));
+                naoItem.setItemMeta(naoMeta);
             }
 
-            menu.setItem(3, arenaItem);
-            menu.setItem(5, localItem);
+            menu.setItem(3, simItem);
+            menu.setItem(5, naoItem);
 
             desafiosPendentes.put(player.getName(), desafiado.getName());
 
@@ -152,51 +169,42 @@
          */
         @EventHandler
         public void onInventoryClick(InventoryClickEvent event) {
-            if (!event.getView().getTitle().equals(ChatColor.DARK_BLUE + "Escolha o Local do X1")) {
-                return;
-            }
+            Player player = (Player) event.getWhoClicked();
+            Inventory menu = event.getInventory();
 
-            event.setCancelled(true);
+            // Verifica se o menu aberto é o de seleção do X1
+            if (menu.getTitle().equals(ChatColor.DARK_BLUE + "Usar arena?")) {
+                event.setCancelled(true); // Impede que o jogador remova os itens do menu
 
-            if (!(event.getWhoClicked() instanceof Player)) {
-                return;
-            }
+                ItemStack item = event.getCurrentItem();
+                if (item == null || !item.hasItemMeta()) return;
 
-            final Player desafiante = (Player) event.getWhoClicked();
-            final String alvoNome = desafiosPendentes.get(desafiante.getName());
+                String desafiadoNome = desafiosPendentes.get(player.getName());
+                if (desafiadoNome == null) return;
 
-            if (alvoNome == null) {
-                desafiante.closeInventory();
-                return; // 🔴 Removeu a mensagem errada "Você não possui desafios pendentes."
-            }
-
-            final Player alvo = Bukkit.getPlayer(alvoNome);
-            if (alvo == null || !alvo.isOnline()) {
-                desafiante.sendMessage(ChatColor.RED + "❌ O jogador " + alvoNome + " não está mais online.");
-                desafiosPendentes.remove(desafiante.getName());
-                desafiante.closeInventory();
-                return;
-            }
-
-            if (event.getCurrentItem() == null) {
-                return;
-            }
-
-            final boolean usarArenaFinal = event.getCurrentItem().getType() == Material.IRON_SWORD;
-
-            // ✅ Remove o desafio apenas após a escolha ser validada
-            desafiosPendentes.remove(desafiante.getName());
-
-            desafiante.closeInventory();
-
-            desafiante.sendMessage(ChatColor.GREEN + "✔ Você escolheu " + (usarArenaFinal ? "a Arena Fixa!" : "o Local Atual!"));
-
-            Bukkit.getScheduler().scheduleSyncDelayedTask(Bukkit.getPluginManager().getPlugin("PrimeLeagueX1"), new Runnable() {
-                @Override
-                public void run() {
-                    ChallengeManager.desafiar(desafiante, alvo, usarArenaFinal);
+                Player desafiado = Bukkit.getPlayer(desafiadoNome);
+                if (desafiado == null) {
+                    player.sendMessage(ChatColor.RED + "❌ O jogador desafiado saiu do jogo!");
+                    desafiosPendentes.remove(player.getName());
+                    return;
                 }
-            }, 10L);
+
+                // Verifica a opção escolhida
+                if (item.getType() == Material.WOOL) {
+                    short data = item.getDurability();
+
+                    if (data == 5) { // Lã verde → Arena Fixa
+                        player.sendMessage(ChatColor.GREEN + "✅ Você escolheu a Arena Fixa!");
+                        ChallengeManager.desafiar(player, desafiado, true);
+                    } else if (data == 14) { // Lã vermelha → Local Atual
+                        player.sendMessage(ChatColor.YELLOW + "✅ Você escolheu o Local Atual!");
+                        ChallengeManager.desafiar(player, desafiado, false);
+                    }
+
+                    desafiosPendentes.remove(player.getName()); // Remove o desafio pendente
+                    player.closeInventory(); // Fecha o menu após a escolha
+                }
+            }
         }
 
         private void aceitarDesafio(Player player) {
@@ -325,4 +333,5 @@
 
             player.sendMessage(ChatColor.GOLD + "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
         }
+
     }

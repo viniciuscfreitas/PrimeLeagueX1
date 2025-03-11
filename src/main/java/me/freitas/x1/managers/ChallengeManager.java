@@ -37,8 +37,15 @@ public class ChallengeManager {
 
         // Se o X1 for no local atual, verificar distância entre os jogadores
         if (!usarArena) {
+            if (!desafiante.getWorld().equals(alvo.getWorld())) {
+                desafiante.sendMessage(ChatColor.RED + "❌ Você está em um mundo diferente de " + alvo.getName() + " e não pode desafiá-lo para um X1 local!");
+                return;
+            }
+
+            // Declarando a variável ANTES do if
             double distancia = desafiante.getLocation().distance(alvo.getLocation());
-            if (distancia > 10) { // Se estiverem a mais de 10 blocos de distância, o desafio é negado
+
+            if (distancia > 10) {
                 desafiante.sendMessage(ChatColor.RED + "❌ Você está muito longe de " + alvo.getName() + " para desafiá-lo!");
                 return;
             }
@@ -156,17 +163,15 @@ public class ChallengeManager {
                     enviarMensagemExpiracao(desafiante, alvo);
                 }
 
-                // ✅ **Remover desafio corretamente de TODOS os mapas**
+                // ✅ Remover desafio corretamente de TODOS os mapas
                 desafios.remove(alvo);
                 desafios.remove(desafiante);
-                desafiosExpiracao.remove(alvo);
-                desafiosExpiracao.remove(desafiante);
                 desafiosArena.remove(alvo);
                 desafiosArena.remove(desafiante);
                 desafiosAtivos.remove(alvo);
                 desafiosAtivos.remove(desafiante);
 
-                iterator.remove();
+                iterator.remove(); // ✅ Agora o remove() ocorre via Iterator, evitando o erro.
             }
         }
     }
@@ -194,15 +199,15 @@ public class ChallengeManager {
      * Envia mensagens aos jogadores envolvidos em um desafio.
      */
     private static void enviarMensagemDesafio(Player desafiante, Player alvo, boolean usarArena) {
-        desafiante.sendMessage(ChatColor.GREEN + "🎯 Você desafiou " + alvo.getName() + " para um X1!");
+        desafiante.sendMessage(ChatColor.AQUA + "[X1] " + ChatColor.GREEN + "🎯 Você desafiou " + ChatColor.RED + alvo.getName() + ChatColor.GREEN + " para um X1!");
 
         if (usarArena) {
-            alvo.sendMessage(ChatColor.YELLOW + desafiante.getName() + " te desafiou para um X1 na ARENA!");
+            alvo.sendMessage(ChatColor.AQUA + "[X1] " + ChatColor.RED + desafiante.getName() + ChatColor.AQUA + " desafiou você para um X1 na ARENA!");
         } else {
-            alvo.sendMessage(ChatColor.YELLOW + desafiante.getName() + " te desafiou para um X1 no LOCAL ATUAL!");
+            alvo.sendMessage(ChatColor.AQUA + "[X1] " + ChatColor.RED + desafiante.getName() + ChatColor.AQUA + " desafiou você para um X1 no LOCAL ATUAL!");
         }
 
-        alvo.sendMessage(ChatColor.GOLD + "Use /x1 aceitar para lutar ou /x1 recusar para cancelar.");
+        alvo.sendMessage(ChatColor.AQUA + "[X1] " + ChatColor.YELLOW + "Digite: /x1 aceitar " + desafiante.getName() + ChatColor.AQUA + " para aceitar!");
     }
 
     /**
