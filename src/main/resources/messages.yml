@@ -1,0 +1,130 @@
+# Configuração de Mensagens do PrimeLeagueX1
+
+arena:
+  config_nao_encontrado: "&cErro: Configuração da arena não encontrada!"
+  erro_camarote: "&cErro ao definir o camarote!"
+  erro_carregar_config: "&cErro ao carregar a configuração da arena!"
+  erro_coordenadas: "&cErro ao definir coordenadas da arena!"
+  erro_pos1: "&cErro ao definir a posição 1 da arena!"
+  erro_pos2: "&cErro ao definir a posição 2 da arena!"
+  erro_salvar: "&cErro ao salvar a configuração da arena!"
+  loaded_camarote: "&aCamarote carregado em {location}!"
+  loaded_pos1: "&aPosição 1 carregada em {location}!"
+  loaded_pos2: "&aPosição 2 carregada em {location}!"
+  set_camarote: "&aCamarote da arena definido em {location}!"
+  set_pos1: "&aPosição 1 da arena definida em {location}!"
+  set_pos2: "&aPosição 2 da arena definida em {location}!"
+  world_not_found: "&cO mundo {world} não foi encontrado!"
+  nao_configurada: "&cA arena ainda não foi configurada!"
+
+comando:
+  erro_registro: "&cErro ao registrar comando!"
+  invalido: "&cComando inválido! Use /x1 para mais informações."
+  somente_jogadores: "&cApenas jogadores podem executar este comando!"
+  x1_registrado: "&aComando /x1 registrado com sucesso!"
+
+dados:
+  carregados: "&aDados carregados com sucesso!"
+  carregando: "&eCarregando dados..."
+
+desafios:
+  verificacao: "&eVerificando desafios pendentes..."
+
+duelo:
+  empate: "&eO duelo terminou em empate!"
+  tempo_expirado: "&cO tempo do duelo expirou!"
+
+erro:
+  carregar_stats: "&cErro ao carregar estatísticas!"
+  carregar_stats_file_inexistente: "&cErro ao carregar estatísticas: arquivo inexistente!"
+  salvar_stats: "&cErro ao salvar estatísticas!"
+  salvar_stats_file_inexistente: "&cErro ao salvar estatísticas: arquivo inexistente!"
+
+eventos:
+  registrados: "&aEventos do X1 registrados com sucesso!"
+
+mensagens:
+  desafio:
+    auto: "&cVocê não pode se desafiar!"
+    cancelado: "&e{player} cancelou o desafio!"
+    cancelouSucesso: "&aVocê cancelou o desafio com sucesso!"
+    como_aceitar: "&ePara aceitar, use /x1 aceitar!"
+    enviar: "&eVocê desafiou {player} para um X1!"
+    expirou: "&cO desafio expirou!"
+    expirouDesafiado: "&cO desafio de {player} contra você expirou!"
+    expirouDesafiante: "&cSeu desafio contra {player} expirou!"
+    expirouDesafio: "&cO desafio expirou!"
+    jaDesafiou: "&cVocê já desafiou este jogador!"
+    jaFoiDesafiado: "&cVocê já foi desafiado por outro jogador!"
+    jaRemovido: "&cO desafio já foi removido!"
+    jogadorOffline: "&cO jogador {player} está offline!"
+    muitoLonge: "&c{player} está muito longe para ser desafiado!"
+    mundoDiferente: "&c{player} está em outro mundo e não pode ser desafiado!"
+    receber:
+      arena: "&eVocê foi desafiado por {player} para um X1 na arena!"
+      local: "&eVocê foi desafiado por {player} para um X1 no local atual!"
+    recusou: "&c{player} recusou o desafio!"
+    recusouSucesso: "&aVocê recusou o desafio com sucesso!"
+    semDesafios: "&cVocê não tem desafios pendentes!"
+    semDesafiosCancelar: "&cVocê não tem desafios para cancelar!"
+  duelo:
+    tempo_expirado: "&cO tempo do duelo expirou!"
+    empate: "&cO duelo terminou em empate!"
+    anuncio: "&eX1 iniciado entre {player1} e {player2}!"
+    cancelado_area: "&cO duelo foi cancelado porque um jogador saiu da área!"
+    contagem: "&eIniciando em {segundos} segundos!"
+    derrota: "&cVocê perdeu para {player}!"
+    derrota_subtitulo: "&cTente novamente para recuperar seu ranking!"
+    derrota_titulo: "&4Derrota!"
+    elo_ganho: "&aVocê ganhou {elo} pontos de Elo!"
+    erro_cancelar: "&cErro ao cancelar o duelo!"
+    fim: "&eDuelo encerrado! Vencedor: {vencedor}, Perdedor: {perdedor}."
+    limite_elo: "&c{player} atingiu o limite de Elo!"
+    local_atual: "&eO duelo ocorrerá no local atual!"
+    novo_elo: "&aSeu novo Elo: {elo}"
+    novo_elo_perdedor: "&cSeu novo Elo: {elo}"
+    oponente_saiu: "&cSeu oponente saiu do servidor! O duelo foi cancelado."
+    prefixo_x1: "&e[X1] "
+    subtitulo: "&eDuelo em andamento!"
+    teleportado_arena: "&aVocê foi teleportado para a arena!"
+    tempo_restante: "&eTempo restante: {segundos} segundos!"
+    titulo: "&6Duelo Iniciado!"
+    vitoria: "&aVocê venceu {player}!"
+    vitoria_subtitulo: "&aParabéns pela vitória!"
+    vitoria_titulo: "&2Vitória!"
+
+plugin:
+  ativado: "&a[PrimeLeagueX1] Plugin ativado com sucesso!"
+  desativado: "&c[PrimeLeagueX1] Plugin desativado."
+
+stats:
+  carregado: "&aEstatísticas carregadas com sucesso!"
+  salvo: "&aEstatísticas salvas com sucesso!"
+  salvas: "&aEstatísticas salvas corretamente!"
+
+x1:
+  aceitar:
+    erro: "&cErro ao aceitar o X1!"
+  camarote:
+    erro: "&cErro ao acessar o camarote da arena!"
+    sucesso: "&aVocê foi teleportado para o camarote!"
+  cancelar:
+    erro: "&cErro ao cancelar o X1!"
+  desafio:
+    arena_fixa: "&eO X1 será na arena fixa!"
+    cancelado: "&eO desafio foi cancelado!"
+    erro: "&cNão foi possível desafiar este jogador!"
+    ja_desafiou: "&cVocê já desafiou {player}!"
+    jogador_offline: "&cO jogador {player} está offline!"
+    jogador_saiu: "&cO jogador desafiado saiu do servidor!"
+    local_atual: "&eO X1 será no local atual!"
+    ocupado: "&cO jogador já está em um X1!"
+    pendente: "&cVocê já tem um desafio pendente!"
+    uso_correto: "&eUse /x1 desafiar <jogador> para iniciar um X1!"
+  revanche: "&eOponente disponível para revanche! Use /x1 revanche"
+  set:
+    camarote_sucesso: "&aCamarote da arena definido com sucesso!"
+    invalido: "&cParâmetro inválido! Use /x1 set <pos1|pos2|camarote>"
+    pos1_sucesso: "&aPosição 1 da arena definida com sucesso!"
+    pos2_sucesso: "&aPosição 2 da arena definida com sucesso!"
+    uso_correto: "&eUso correto: /x1 set <pos1|pos2|camarote>"

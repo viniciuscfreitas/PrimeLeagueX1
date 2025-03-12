@@ -1,9 +1,13 @@
 package me.freitas.x1.managers;
 
+import me.freitas.x1.PrimeLeagueX1;
+import me.freitas.x1.utils.MessageUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Sound;
+// import me.freitas.config.ConfigManager;
+// import me.freitas.config.Messages;
 import org.bukkit.entity.Player;
 import me.freitas.elo.api.PrimeLeagueEloAPI;
 import org.bukkit.scoreboard.Scoreboard;
@@ -14,15 +18,15 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class DuelManager {
-    private static final Map<String, Location> localizacaoOriginal = new HashMap<String, Location>();
+    private static final Map<String, Location> localizacaoOriginal = new HashMap<>();
     private static final Map<String, String> duelosAtivos = new HashMap<String, String>();
 
     // Adicionado para controle de vitórias diárias e consecutivas
     private static final Map<String, Integer> vitoriasDiarias = new HashMap<String, Integer>();
     private static final Map<String, Integer> vitoriasSeguidas = new HashMap<String, Integer>();
     private static final Map<String, Long> tempoUltimaVitoria = new HashMap<String, Long>();
-    private static final long RESET_DIARIO_HORAS = 24;
-    private static final long RESET_CONSECUTIVAS_HORAS = 12;
+    private static long RESET_DIARIO_HORAS = 24; // Ajuste o valor correto
+    private static long RESET_CONSECUTIVAS_HORAS = 24; // Ajuste o valor correto
 
     public static void iniciarDuelo(final Player desafiante, final Player alvo, boolean usarArena) {
         salvarLocalizacaoOriginal(desafiante);
@@ -40,6 +44,64 @@ public class DuelManager {
                 verificarDistancia(desafiante, alvo);
             }
         }, 200L);
+
+        // Inicia o temporizador do X1 com tempo configurável via config.yml
+        int tempoLimite = (int) PrimeLeagueX1.getInstance().getConfig().getLong("x1_timeout", 30);
+        iniciarTemporizadorDuelo(desafiante, alvo, tempoLimite);
+    }
+
+    public static void iniciarTemporizadorDuelo(final Player desafiante, final Player alvo, int tempoLimite) {
+        final int[] tempoRestante = {tempoLimite};
+
+        final int[] taskId = new int[1];
+        taskId[0] = Bukkit.getScheduler().scheduleSyncRepeatingTask(Bukkit.getPluginManager().getPlugin("PrimeLeagueX1"), new Runnable() {
+            @Override
+            public void run() {
+                if (!duelosAtivos.containsKey(desafiante.getName()) || !duelosAtivos.containsKey(alvo.getName())) {
+                    Bukkit.getScheduler().cancelTask(tempoRestante[0]);
+                    return;
+                }
+
+                // Enviar mensagem para ambos os jogadores
+                if (tempoRestante[0] % 10 == 0 || tempoRestante[0] <= 5) { // Avisa a cada 10s e nos últimos 5s
+                    String tempoMsg = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.tempo_restante").replace("{segundos}", String.valueOf(tempoRestante[0]));
+                    desafiante.sendMessage(tempoMsg);
+                    alvo.sendMessage(tempoMsg);
+                }
+
+                if (tempoRestante[0] <= 0) {
+                    String tempoExpirado = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.tempo_expirado");
+                    String empate = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.empate");
+                    String expiradoMsg = PrimeLeagueX1.getInstance().getMensagem("duelo.tempo_expirado");
+                    desafiante.sendMessage(expiradoMsg);
+                    alvo.sendMessage(expiradoMsg);
+
+                    String dueloEmpateMsg = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.empate")
+                            .replace("{desafiante}", desafiante.getName())
+                            .replace("{alvo}", alvo.getName());
+                    Bukkit.broadcastMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.empate")
+                            .replace("{desafiante}", desafiante.getName())
+                            .replace("{alvo}", alvo.getName()));
+
+                    // Restaurar localizações
+                    restaurarLocalizacao(desafiante);
+                    restaurarLocalizacao(alvo);
+
+                    // Resetar tags e nomes
+                    resetarCorNome(desafiante);
+                    resetarCorNome(alvo);
+
+                    // Remover duelo sem conceder vitória para ninguém
+                    removerDuelo(desafiante, null);
+                    removerDuelo(alvo, null);
+
+                    // Cancelar a tarefa do temporizador
+                    Bukkit.getScheduler().cancelTask(taskId[0]);
+                }
+
+                tempoRestante[0]--;
+            }
+        }, 0L, 20L); // 20 ticks = 1 segundo
     }
 
     public static boolean estaEmDuelo(String playerName) {
@@ -73,8 +135,9 @@ public class DuelManager {
                     alvoForaTempo++;
 
                     if (desafianteForaTempo >= TEMPO_LIMITE && alvoForaTempo >= TEMPO_LIMITE) {
-                        desafiante.sendMessage(ChatColor.YELLOW + "⚠ Ambos os jogadores saíram da área do duelo! O X1 foi cancelado.");
-                        alvo.sendMessage(ChatColor.YELLOW + "⚠ Ambos os jogadores saíram da área do duelo! O X1 foi cancelado.");
+                        String canceladoMsg = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.cancelado_area");
+                        desafiante.sendMessage(canceladoMsg);
+                        alvo.sendMessage(canceladoMsg);
                         cancelarDuelo(desafiante);
                         cancelarDuelo(alvo);
                         return;
@@ -96,13 +159,13 @@ public class DuelManager {
                 }
 
                 // Se qualquer um dos jogadores sair, cancelar o X1 ao invés de dar vitória
-                if (desafianteForaTempo >= TEMPO_LIMITE || alvoForaTempo >= TEMPO_LIMITE) {
-                    desafiante.sendMessage(ChatColor.YELLOW + "⚠ O duelo foi cancelado pois um dos jogadores saiu da área do X1!");
-                    alvo.sendMessage(ChatColor.YELLOW + "⚠ O duelo foi cancelado pois um dos jogadores saiu da área do X1!");
-                    cancelarDuelo(desafiante);
-                    cancelarDuelo(alvo);
-                    return;
-                }
+                    if (desafianteForaTempo >= TEMPO_LIMITE || alvoForaTempo >= TEMPO_LIMITE) {
+                        desafiante.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.cancelado_area"));
+                        alvo.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.cancelado_area"));
+                        cancelarDuelo(desafiante);
+                        cancelarDuelo(alvo);
+                        return;
+                    }
             }
         }, 0L, 20L); // Verifica a cada 1 segundo
     }
@@ -115,7 +178,8 @@ public class DuelManager {
             time = scoreboard.registerNewTeam(jogador.getName());
         }
 
-        time.setPrefix(ChatColor.RED + "[X1] " + ChatColor.WHITE); // Apenas o prefixo fica vermelho, nome continua branco
+        String prefixoX1 = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.prefixo_x1");
+        time.setPrefix(ChatColor.translateAlternateColorCodes('&', PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.prefixo_x1")));
         time.setSuffix(ChatColor.RESET.toString()); // Reseta formatação extra
         time.setDisplayName(jogador.getName()); // Mantém o nome original
         time.addPlayer(jogador);
@@ -126,7 +190,7 @@ public class DuelManager {
 
         // 🔍 Se adversárioNome for null, o duelo já foi removido
         if (adversarioNome == null) {
-            jogador.sendMessage(ChatColor.RED + "⚠ Erro ao cancelar duelo: adversário não encontrado.");
+            jogador.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.erro_cancelar"));
             removerDuelo(jogador, null);
             return;
         }
@@ -135,7 +199,7 @@ public class DuelManager {
 
         // 🔍 Se adversário ainda estiver online, notifica e finaliza o duelo
         if (adversario != null) {
-            adversario.sendMessage(ChatColor.RED + "❌ Seu oponente saiu do duelo! Você venceu.");
+            adversario.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.oponente_saiu"));
             finalizarDuelo(adversario, jogador);
         }
 
@@ -154,14 +218,27 @@ public class DuelManager {
     }
 
     public static void finalizarDuelo(Player vencedor, Player perdedor) {
-        enviarTitulo(vencedor, ChatColor.GOLD + "🏆 VITÓRIA!", "Você venceu o X1!");
-        enviarTitulo(perdedor, ChatColor.RED + "❌ DERROTA!", "Tente novamente!");
+        String vitoriaTitulo = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.vitoria_titulo");
+        String vitoriaSubtitulo = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.vitoria_subtitulo");
+        String derrotaTitulo = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.derrota_titulo");
+        String derrotaSubtitulo = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.derrota_subtitulo");
+
+        // Enviando mensagens ao vencedor
+        vencedor.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.titulo").replace("{titulo}", vitoriaTitulo));
+        vencedor.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.subtitulo").replace("{subtitulo}", vitoriaSubtitulo));
+
+        // Enviando mensagens ao perdedor
+        perdedor.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.titulo").replace("{titulo}", derrotaTitulo));
+        perdedor.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.subtitulo").replace("{subtitulo}", derrotaSubtitulo));
 
         vencedor.playSound(vencedor.getLocation(), Sound.LEVEL_UP, 1.0f, 1.0f);
         perdedor.playSound(perdedor.getLocation(), Sound.NOTE_BASS, 1.0f, 1.0f);
 
-        vencedor.sendMessage(ChatColor.GOLD + "Você venceu o duelo contra " + perdedor.getName() + "!");
-        perdedor.sendMessage(ChatColor.RED + "Você perdeu o duelo contra " + vencedor.getName() + "!");
+        String vitoriaMsg = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.vitoria").replace("{player}", perdedor.getName());
+        String derrotaMsg = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.derrota").replace("{player}", vencedor.getName());
+
+        vencedor.sendMessage(vitoriaMsg);
+        perdedor.sendMessage(derrotaMsg);
 
         resetarCorNome(vencedor);
         resetarCorNome(perdedor);
@@ -190,8 +267,8 @@ public class DuelManager {
         }
 
         // Definir ganho/perda de Elo com base na diferença e redução gradual
-        int eloVencedor = PrimeLeagueEloAPI.getElo(vencedor);
-        int eloPerdedor = PrimeLeagueEloAPI.getElo(perdedor);
+        int eloVencedor = PrimeLeagueEloAPI.getElo(Bukkit.getPlayer(vencedor.getName()));
+        int eloPerdedor = PrimeLeagueEloAPI.getElo(Bukkit.getPlayer(perdedor.getName()));
         int diferencaElo = eloVencedor - eloPerdedor;
 
         int baseGanho = 30;
@@ -204,8 +281,8 @@ public class DuelManager {
             deltaGanho = 0;
         }
 
-        PrimeLeagueEloAPI.updateElo(vencedor, PrimeLeagueEloAPI.getElo(vencedor) + deltaGanho);
-        int novoEloPerdedor = Math.max(0, PrimeLeagueEloAPI.getElo(perdedor) - deltaPerda);
+        PrimeLeagueEloAPI.updateElo(vencedor, PrimeLeagueEloAPI.getElo(Bukkit.getPlayer(vencedor.getName())) + deltaGanho);
+        int novoEloPerdedor = Math.max(0, PrimeLeagueEloAPI.getElo(Bukkit.getPlayer(perdedor.getName())) - deltaPerda);
         PrimeLeagueEloAPI.updateElo(perdedor, novoEloPerdedor);
 
         // Atualiza estatísticas
@@ -215,13 +292,17 @@ public class DuelManager {
 
         // Exibir nova pontuação de Elo
         if (deltaGanho > 0) {
-            vencedor.sendMessage(ChatColor.GREEN + "📈 Você ganhou " + deltaGanho + " de Elo!");
+            String eloGanhoMsg = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.elo_ganho").replace("{elo}", String.valueOf(deltaGanho));
+            vencedor.sendMessage(eloGanhoMsg);
         } else {
-            vencedor.sendMessage(ChatColor.YELLOW + "⚠ Você atingiu o limite diário de vitórias contra " + perdedor.getName() + " e não recebeu Elo.");
+            String limiteEloMsg = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.limite_elo").replace("{player}", perdedor.getName());
+            vencedor.sendMessage(limiteEloMsg);
         }
 
-        vencedor.sendMessage(ChatColor.GREEN + "Seu novo Elo: " + ChatColor.AQUA + PrimeLeagueEloAPI.getElo(vencedor));
-        perdedor.sendMessage(ChatColor.RED + "📉 Seu novo Elo: " + ChatColor.AQUA + PrimeLeagueEloAPI.getElo(perdedor));
+        String novoEloVencedorMsg = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.novo_elo").replace("{elo}", String.valueOf(PrimeLeagueEloAPI.getElo(vencedor)));
+        vencedor.sendMessage(novoEloVencedorMsg);
+        String novoEloPerdedorMsg = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.novo_elo_perdedor").replace("{elo}", String.valueOf(PrimeLeagueEloAPI.getElo(perdedor)));
+        perdedor.sendMessage(novoEloPerdedorMsg);
     }
 
     private static void salvarLocalizacaoOriginal(Player player) {
@@ -235,18 +316,33 @@ public class DuelManager {
     }
 
     public static void enviarTitulo(Player player, String titulo, String subtitulo) {
-        player.sendMessage(ChatColor.GOLD + titulo);
-        player.sendMessage(ChatColor.YELLOW + subtitulo);
+        player.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.titulo").replace("{titulo}", titulo));
+        player.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.subtitulo").replace("{subtitulo}", subtitulo));
     }
 
     public static void anunciarDuelo(Player desafiante, Player alvo) {
-        Bukkit.broadcastMessage(ChatColor.GOLD + "🔥 X1 INICIANDO! 🔥");
-        Bukkit.broadcastMessage(ChatColor.YELLOW + desafiante.getName() + " ⚔ " + alvo.getName());
+        if (PrimeLeagueX1.getInstance().getConfig().getBoolean("debug")) { Bukkit.getLogger().info("🔍 Tentando buscar mensagem: mensagens.duelo.anuncio"); }
+
+        String dueloAnuncioMsg = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.anuncio");
+
+        if (dueloAnuncioMsg == null || dueloAnuncioMsg.isEmpty()) {
+            if (PrimeLeagueX1.getInstance().getConfig().getBoolean("debug")) { Bukkit.getLogger().severe("🚨 ERRO: A mensagem 'mensagens.duelo.anuncio' não foi encontrada no messages.yml!"); }
+            return;
+        }
+
+        // Substituir corretamente os placeholders pelos nomes dos jogadores
+        dueloAnuncioMsg = dueloAnuncioMsg.replace("{player1}", desafiante.getName())
+                .replace("{player2}", alvo.getName());
+
+        // Debug para verificar a mensagem final no console
+        if (PrimeLeagueX1.getInstance().getConfig().getBoolean("debug")) { Bukkit.getLogger().info("📢 Mensagem final do anúncio: " + dueloAnuncioMsg); }
+
+        // Enviar mensagem formatada para todos os jogadores
+        Bukkit.broadcastMessage(dueloAnuncioMsg);
     }
 
     public static void anunciarFimDuelo(Player vencedor, Player perdedor) {
-        Bukkit.broadcastMessage(ChatColor.GREEN + "🏆 O duelo acabou! Vencedor: " + vencedor.getName());
-        Bukkit.broadcastMessage(ChatColor.RED + "💀 Perdedor: " + perdedor.getName());
+        Bukkit.broadcastMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.fim").replace("{vencedor}", vencedor.getName()).replace("{perdedor}", perdedor.getName()));
     }
 
     private static void removerDuelo(Player jogador1, Player jogador2) {
@@ -266,15 +362,18 @@ public class DuelManager {
             if (ArenaManager.arenaDefinida()) {
                 desafiante.teleport(ArenaManager.getPos1());
                 alvo.teleport(ArenaManager.getPos2());
-                desafiante.sendMessage(ChatColor.AQUA + "[X1] Você foi teleportado para a arena!");
-                alvo.sendMessage(ChatColor.AQUA + "[X1] Você foi teleportado para a arena!");
+                String teleportadoArenaMsg = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.teleportado_arena");
+                desafiante.sendMessage(teleportadoArenaMsg);
+                alvo.sendMessage(teleportadoArenaMsg);
             } else {
-                desafiante.sendMessage(ChatColor.RED + "[X1] ⚠ A arena ainda não foi configurada! O duelo será no local atual.");
-                alvo.sendMessage(ChatColor.RED + "[X1] ⚠ A arena ainda não foi configurada! O duelo será no local atual.");
+                String arenaNaoConfiguradaMsg = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.arena_nao_configurada");
+                desafiante.sendMessage(arenaNaoConfiguradaMsg);
+                alvo.sendMessage(arenaNaoConfiguradaMsg);
             }
         } else {
-            desafiante.sendMessage(ChatColor.YELLOW + "[X1] O duelo será no local atual. Não se afaste do seu oponente.");
-            alvo.sendMessage(ChatColor.YELLOW + "[X1] O duelo será no local atual. Não se afaste do seu oponente.");
+            String dueloLocalMsg = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.local_atual");
+            desafiante.sendMessage(dueloLocalMsg);
+            alvo.sendMessage(dueloLocalMsg);
         }
 
         // 🔒 Impedir dano entre os jogadores durante a contagem
@@ -288,9 +387,10 @@ public class DuelManager {
             @Override
             public void run() {
                 if (contador > 0) {
-                    String numero = ChatColor.RED + String.valueOf(contador);
-                    desafiante.sendMessage(ChatColor.AQUA + "[X1] O duelo iniciará em " + numero + " segundo(s)!");
-                    alvo.sendMessage(ChatColor.AQUA + "[X1] O duelo iniciará em " + numero + " segundo(s)!");
+                    String contagemMsg = PrimeLeagueX1.getInstance().getMensagem("mensagens.duelo.contagem")
+                            .replace("{segundos}", String.valueOf(contador));
+                    desafiante.sendMessage(contagemMsg);
+                    alvo.sendMessage(contagemMsg);
                     desafiante.playSound(desafiante.getLocation(), Sound.ORB_PICKUP, 1.0f, 1.0f);
                     alvo.playSound(alvo.getLocation(), Sound.ORB_PICKUP, 1.0f, 1.0f);
                     contador--;
@@ -302,13 +402,11 @@ public class DuelManager {
                     duelosAtivos.put(desafiante.getName(), alvo.getName());
                     duelosAtivos.put(alvo.getName(), desafiante.getName());
 
-                    desafiante.sendMessage(ChatColor.YELLOW + "[X1] ⚔ " + desafiante.getName() + " vs " + alvo.getName() + " ⚔");
-                    alvo.sendMessage(ChatColor.YELLOW + "[X1] ⚔ " + desafiante.getName() + " vs " + alvo.getName() + " ⚔");
+                    // 📢 Agora chamamos a função correta que já substitui os placeholders
+                    anunciarDuelo(desafiante, alvo);
 
                     desafiante.playSound(desafiante.getLocation(), Sound.ANVIL_LAND, 1.0f, 1.0f);
                     alvo.playSound(alvo.getLocation(), Sound.ANVIL_LAND, 1.0f, 1.0f);
-
-                    anunciarDuelo(desafiante, alvo);
                 }
             }
         }, 0L, 20L); // ⏳ 20 ticks = 1 segundo

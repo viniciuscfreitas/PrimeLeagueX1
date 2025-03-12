@@ -1,0 +1,43 @@
+# Configurações Gerais do PrimeLeagueX1
+config:
+  tempoExpiracao: 180 # Tempo em segundos para um desafio expirar
+  x1_timeout: 180 # Tempo máximo para um X1 (segundos)
+  raio_maximo_x1: 20 # Distância máxima permitida entre os jogadores durante o X1
+  permitir_revanche: true # Permitir que jogadores solicitem revanche
+  ativar_apostas: false # Ativar sistema de apostas (true/false)
+  economia: "Vault" # Sistema de economia a ser utilizado (Vault, iConomy, etc.)
+  prefixo_mensagem: "&6[PrimeLeagueX1] &f" # Prefixo para mensagens do plugin
+  som_inicio_duelo: "NOTE_PLING" # Som ao iniciar um X1
+  som_fim_duelo: "LEVEL_UP" # Som ao finalizar um X1
+
+# Configurações da Arena
+arena:
+  usar_arena_padrao: true # Se true, sempre usará a arena fixa
+  permitir_x1_local: true # Se true, permite X1 no local atual dos jogadores
+  pos1: "100,65,-100,world" # Coordenadas da Posição 1 da arena (X,Y,Z,Mundo)
+  pos2: "110,65,-90,world" # Coordenadas da Posição 2 da arena
+  camarote: "105,70,-95,world" # Posição do camarote para espectadores
+
+# Configurações de Estatísticas
+estatisticas:
+  max_adversarios_vencidos: 5 # Número máximo de jogadores diferentes para contagem de vitórias diárias
+  salvar_automaticamente: true # Se true, salva automaticamente estatísticas ao finalizar um X1
+
+# Configuração de Prefixos e Cores
+formatacao:
+  prefixo_x1: "&4[X1] " # Prefixo que será exibido no nome dos jogadores em duelo
+  cor_nome_x1: "&f" # Cor do nome dos jogadores em X1
+
+# Configuração de Sons (Bukkit 1.5.2)
+sons:
+  inicio_contagem: "NOTE_PLING"
+  fim_contagem: "NOTE_BASS"
+  vitoria: "LEVEL_UP"
+  derrota: "NOTE_BASS"
+  saida_area: "ANVIL_BREAK"
+
+# Configurações de Logs e Debug
+logs:
+  ativar_logs: true # Se true, ativará logs no console
+  salvar_logs: true # Se true, salvará logs em arquivos
+  caminho_logs: "plugins/PrimeLeagueX1/logs/" # Diretório para salvar os logs

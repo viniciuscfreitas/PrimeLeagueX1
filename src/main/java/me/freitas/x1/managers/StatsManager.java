@@ -1,6 +1,9 @@
 package me.freitas.x1.managers;
 
+import me.freitas.x1.PrimeLeagueX1;
+import me.freitas.x1.utils.MessageUtils;
 import org.bukkit.Bukkit;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 
 import java.io.File;
@@ -9,7 +12,8 @@ import java.io.IOException;
 import java.util.*;
 
 public class StatsManager {
-    private static final File statsFile = new File("plugins/PrimeLeagueX1/stats.txt");
+    private static File statsFile;
+    private static int maxAdversariosVencidos;
 
     private static final Map<String, Integer> vitorias = new HashMap<String, Integer>();
     private static final Map<String, Integer> derrotas = new HashMap<String, Integer>();
@@ -17,6 +21,16 @@ public class StatsManager {
     private static final Map<String, Integer> maiorStreak = new HashMap<String, Integer>();
     private static final Map<String, Integer> totalJogos = new HashMap<String, Integer>();
     private static final Map<String, Set<String>> adversariosVencidos = new HashMap<String, Set<String>>();
+
+    // ✅ Método para carregar configurações
+    public static void loadConfig(FileConfiguration config) {
+        String statsPath = config.getString("stats-file-path", "plugins/PrimeLeagueX1/stats.txt");
+        statsFile = new File(statsPath);
+        if (!statsFile.getParentFile().exists()) {
+            statsFile.getParentFile().mkdirs();
+        }
+        maxAdversariosVencidos = config.getInt("max-adversarios-vencidos", 10);
+    }
 
     // ✅ Método genérico para inicializar estatísticas do jogador
     private static void inicializarStats(String nome) {
@@ -55,7 +69,9 @@ public class StatsManager {
             maiorStreak.put(nome, streaks.get(nome));
         }
 
-        adversariosVencidos.get(nome).add(nomeAdversario);
+        if (adversariosVencidos.get(nome).size() < maxAdversariosVencidos) {
+            adversariosVencidos.get(nome).add(nomeAdversario);
+        }
 
         salvarStats();
     }
@@ -118,60 +134,81 @@ public class StatsManager {
 
     // ✅ Salva estatísticas no arquivo
     public static void salvarStats() {
-        try {
-            if (!statsFile.exists()) {
-                statsFile.getParentFile().mkdirs();
-                statsFile.createNewFile();
+        if (statsFile == null || !statsFile.exists()) {
+            if (PrimeLeagueX1.getInstance().getConfig().getBoolean("debug")) {
+                Bukkit.getLogger().severe("Arquivo de estatísticas não encontrado!");
             }
+            return;
+        }
 
-            FileWriter writer = new FileWriter(statsFile);
+        try (FileWriter writer = new FileWriter(statsFile)) {
             for (String jogador : vitorias.keySet()) {
-                writer.write(jogador + ":V:" + vitorias.get(jogador) + "\n");
-                writer.write(jogador + ":D:" + derrotas.get(jogador) + "\n");
-                writer.write(jogador + ":S:" + streaks.get(jogador) + "\n");
-                writer.write(jogador + ":MS:" + maiorStreak.get(jogador) + "\n");
-                writer.write(jogador + ":TJ:" + totalJogos.get(jogador) + "\n");
+                writer.write(jogador + ":V:" + (vitorias.containsKey(jogador) ? vitorias.get(jogador) : 0) + "\n");
+                writer.write(jogador + ":D:" + (derrotas.containsKey(jogador) ? derrotas.get(jogador) : 0) + "\n");
+                writer.write(jogador + ":S:" + (streaks.containsKey(jogador) ? streaks.get(jogador) : 0) + "\n");
+                writer.write(jogador + ":MS:" + (maiorStreak.containsKey(jogador) ? maiorStreak.get(jogador) : 0) + "\n");
+                writer.write(jogador + ":TJ:" + (totalJogos.containsKey(jogador) ? totalJogos.get(jogador) : 0) + "\n");
 
                 writer.write(jogador + ":AV:" + joinCompat(",", adversariosVencidos.get(jogador)) + "\n");
             }
-            writer.close();
 
+            if (PrimeLeagueX1.getInstance().getConfig().getBoolean("debug")) {
+                Bukkit.getLogger().info("Estatísticas salvas com sucesso!");
+            }
         } catch (IOException e) {
-            Bukkit.getLogger().severe("Erro ao salvar estatísticas do X1!");
+            if (PrimeLeagueX1.getInstance().getConfig().getBoolean("debug")) {
+                Bukkit.getLogger().severe("Erro ao salvar estatísticas!");
+            }
         }
     }
 
     // ✅ Carrega estatísticas do arquivo
     public static void carregarStats() {
-        if (!statsFile.exists()) return;
+        if (statsFile == null || !statsFile.exists()) {
+            if (PrimeLeagueX1.getInstance().getConfig().getBoolean("debug")) {
+                Bukkit.getLogger().severe("Arquivo de estatísticas não encontrado!");
+            }
+            return;
+        }
 
-        try {
-            Scanner scanner = new Scanner(statsFile);
+        try (Scanner scanner = new Scanner(statsFile)) {
             while (scanner.hasNextLine()) {
                 String linha = scanner.nextLine();
                 String[] partes = linha.split(":");
-
                 if (partes.length < 3) continue;
-
                 String jogador = partes[0];
                 String tipo = partes[1];
                 String valor = partes[2];
-
                 inicializarStats(jogador);
-
-                if (tipo.equals("V")) vitorias.put(jogador, parseIntOrDefault(valor, 0));
-                else if (tipo.equals("D")) derrotas.put(jogador, parseIntOrDefault(valor, 0));
-                else if (tipo.equals("S")) streaks.put(jogador, parseIntOrDefault(valor, 0));
-                else if (tipo.equals("MS")) maiorStreak.put(jogador, parseIntOrDefault(valor, 0));
-                else if (tipo.equals("TJ")) totalJogos.put(jogador, parseIntOrDefault(valor, 0));
-                else if (tipo.equals("AV")) adversariosVencidos.get(jogador).addAll(Arrays.asList(valor.split(",")));
+                switch (tipo) {
+                    case "V":
+                        vitorias.put(jogador, parseIntOrDefault(valor, 0));
+                        break;
+                    case "D":
+                        derrotas.put(jogador, parseIntOrDefault(valor, 0));
+                        break;
+                    case "S":
+                        streaks.put(jogador, parseIntOrDefault(valor, 0));
+                        break;
+                    case "MS":
+                        maiorStreak.put(jogador, parseIntOrDefault(valor, 0));
+                        break;
+                    case "TJ":
+                        totalJogos.put(jogador, parseIntOrDefault(valor, 0));
+                        break;
+                    case "AV":
+                        adversariosVencidos.get(jogador).addAll(Arrays.asList(valor.split(",")));
+                        break;
+                }
             }
-            scanner.close();
 
-            Bukkit.getLogger().info("Estatísticas do X1 carregadas com sucesso!");
-
+            if (PrimeLeagueX1.getInstance().getConfig().getBoolean("debug")) {
+                Bukkit.getLogger().info("Estatísticas carregadas com sucesso!");
+            }
         } catch (IOException e) {
-            Bukkit.getLogger().severe("Erro ao carregar estatísticas do X1!");
+            if (PrimeLeagueX1.getInstance().getConfig().getBoolean("debug")) {
+                Bukkit.getLogger().severe("Erro ao carregar estatísticas!");
+            }
         }
     }
 

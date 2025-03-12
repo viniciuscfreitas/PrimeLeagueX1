@@ -1,8 +1,9 @@
 package me.freitas.x1.listeners;
 
 import me.freitas.x1.managers.DuelManager;
+import me.freitas.x1.utils.MessageUtils; // Importando a classe MessageUtils
+import me.freitas.x1.PrimeLeagueX1; // Importando a classe PrimeLeagueX1
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
@@ -17,6 +18,12 @@ import org.bukkit.event.player.PlayerQuitEvent;
  * Listener responsável por gerenciar eventos dentro do sistema de X1.
  */
 public class DuelListener implements Listener {
+
+    private final PrimeLeagueX1 plugin;
+
+    public DuelListener(PrimeLeagueX1 plugin) {
+        this.plugin = plugin;
+    }
 
     /**
      * 🔥 Permite o ataque SOMENTE entre adversários no X1 e impede interferências externas.
@@ -44,14 +51,14 @@ public class DuelListener implements Listener {
 
         // 🚫 Se o jogador atacado está em X1 e o atacante não, bloquear ataque
         if (atingidoEmDuelo && !atacanteEmDuelo) {
-            atacante.sendMessage(ChatColor.RED + "❌ Você não pode atacar jogadores que estão em um X1!");
+            atacante.sendMessage(MessageUtils.getMessage("noAttackDuringDuel").replace("{player}", atingido.getName()));
             event.setCancelled(true);
             return;
         }
 
         // 🚫 Se o atacante está em X1 e está atacando um jogador que não está, bloquear ataque
         if (atacanteEmDuelo && !atingidoEmDuelo) {
-            atacante.sendMessage(ChatColor.RED + "❌ Você não pode atacar jogadores que não estão no seu X1!");
+            atacante.sendMessage(MessageUtils.getMessage("noAttackNonDuelist"));
             event.setCancelled(true);
             return;
         }
@@ -61,7 +68,7 @@ public class DuelListener implements Listener {
             String adversarioEsperado = DuelManager.getAdversario(atacante.getName());
 
             if (!atingido.getName().equals(adversarioEsperado)) {
-                atacante.sendMessage(ChatColor.RED + "❌ Você só pode atacar seu adversário no X1!");
+                atacante.sendMessage(MessageUtils.getMessage("onlyAttackOpponent").replace("{opponent}", adversarioEsperado));
                 event.setCancelled(true);
             }
         }
@@ -79,7 +86,7 @@ public class DuelListener implements Listener {
             Player vencedor = adversarioNome != null ? Bukkit.getPlayer(adversarioNome) : null;
 
             if (vencedor != null) {
-                vencedor.sendMessage(ChatColor.GOLD + "🏆 Você venceu o duelo contra " + ChatColor.RED + perdedor.getName() + " porque ele desconectou!");
+                vencedor.sendMessage(MessageUtils.getMessage("victoryOnDisconnect").replace("{player}", perdedor.getName()));
                 DuelManager.finalizarDuelo(vencedor, perdedor);
             }
         }
@@ -108,7 +115,7 @@ public class DuelListener implements Listener {
 
         if (DuelManager.estaEmDuelo(player.getName())) {
             event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "❌ Você não pode dropar itens durante um duelo!");
+            player.sendMessage(MessageUtils.getMessage("noDropItemsDuringDuel"));
         }
     }
 
@@ -124,7 +131,7 @@ public class DuelListener implements Listener {
             Player vencedor = adversarioNome != null ? Bukkit.getPlayer(adversarioNome) : null;
 
             if (vencedor != null) {
-                vencedor.sendMessage(ChatColor.GOLD + "🏆 Você venceu o duelo contra " + ChatColor.RED + perdedor.getName() + "!");
+                vencedor.sendMessage(MessageUtils.getMessage("victoryAgainstPlayer").replace("{player}", perdedor.getName()));
                 DuelManager.finalizarDuelo(vencedor, perdedor);
             }
         }

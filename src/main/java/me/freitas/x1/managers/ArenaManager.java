@@ -1,51 +1,68 @@
 package me.freitas.x1.managers;
 
+import me.freitas.x1.PrimeLeagueX1;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import me.freitas.x1.utils.MessageUtils;
 
-import java.io.FileWriter;
 import java.io.File;
 import java.io.IOException;
-import java.util.Scanner;
 
 public class ArenaManager {
     private static Location pos1;
     private static Location pos2;
     private static Location camarote;
 
-    private static final File arenaFile = new File("plugins/PrimeLeagueX1/arena.txt");
+    private static final File configFile = new File("plugins/PrimeLeagueX1/config.yml");
+    private static FileConfiguration config;
 
-    /**
-     * Define a posição 1 da arena.
-     */
+    static {
+        boolean debug = PrimeLeagueX1.getInstance().getConfig().getBoolean("debug");
+        if (configFile.exists()) {
+            config = YamlConfiguration.loadConfiguration(configFile);
+        } else {
+            if (debug) {
+                Bukkit.getLogger().severe(ChatColor.translateAlternateColorCodes('&', MessageUtils.getMensagem("arena.config_nao_encontrado")));
+            }
+        }
+    }
+
     public static void setPos1(Location loc) {
         if (loc == null) return;
         pos1 = loc;
-        Bukkit.getLogger().info("[X1] Posição 1 da arena definida: " + locToString(loc));
-        salvarArena();
+        config.set("arena.pos1", locToString(loc));
+        saveConfig();
+        boolean debug = PrimeLeagueX1.getInstance().getConfig().getBoolean("debug");
+        if (debug) {
+            Bukkit.getLogger().info(ChatColor.translateAlternateColorCodes('&', MessageUtils.getMensagem("arena_set_pos1").replace("{location}", locToString(loc))));
+        }
     }
 
-    /**
-     * Define a posição 2 da arena.
-     */
     public static void setPos2(Location loc) {
         if (loc == null) return;
         pos2 = loc;
-        Bukkit.getLogger().info("[X1] Posição 2 da arena definida: " + locToString(loc));
-        salvarArena();
+        config.set("arena.pos2", locToString(loc));
+        saveConfig();
+        boolean debug = PrimeLeagueX1.getInstance().getConfig().getBoolean("debug");
+        if (debug) {
+            Bukkit.getLogger().info(ChatColor.translateAlternateColorCodes('&', MessageUtils.getMensagem("arena_set_pos2").replace("{location}", locToString(loc))));
+        }
     }
 
-    /**
-     * Define a localização do camarote.
-     */
     public static void setCamarote(Location loc) {
         if (loc == null) return;
         camarote = loc;
-        Bukkit.getLogger().info("[X1] Camarote definido: " + locToString(loc));
-        salvarArena();
+        config.set("arena.camarote", locToString(loc));
+        saveConfig();
+        boolean debug = PrimeLeagueX1.getInstance().getConfig().getBoolean("debug");
+        if (debug) {
+            Bukkit.getLogger().info(ChatColor.translateAlternateColorCodes('&', MessageUtils.getMensagem("arena_set_camarote").replace("{location}", locToString(loc))));
+        }
     }
 
     public static Location getPos1() {
@@ -64,88 +81,87 @@ public class ArenaManager {
         return pos1 != null && pos2 != null;
     }
 
-    /**
-     * Salva as coordenadas da arena no arquivo de configuração.
-     */
-    private static void salvarArena() {
+    private static void saveConfig() {
         try {
-            if (!arenaFile.exists()) {
-                arenaFile.getParentFile().mkdirs();
-                arenaFile.createNewFile();
-            }
-
-            FileWriter writer = new FileWriter(arenaFile);
-            if (pos1 != null) writer.write("pos1:" + locToString(pos1) + "\n");
-            if (pos2 != null) writer.write("pos2:" + locToString(pos2) + "\n");
-            if (camarote != null) writer.write("camarote:" + locToString(camarote) + "\n");
-
-            writer.flush();
-            writer.close();
-
-            Bukkit.getLogger().info("[X1] Arena salva com sucesso!");
-
+            config.save(configFile);
         } catch (IOException e) {
-            Bukkit.getLogger().severe("[X1] Erro ao salvar a arena do X1!");
+            boolean debug = PrimeLeagueX1.getInstance().getConfig().getBoolean("debug");
+            if (debug) {
+                Bukkit.getLogger().severe(ChatColor.translateAlternateColorCodes('&', MessageUtils.getMensagem("arena.erro_salvar")));
+            }
             e.printStackTrace();
         }
     }
 
-    /**
-     * Carrega as coordenadas da arena do arquivo de configuração.
-     */
     public static void carregarArena() {
-        if (!arenaFile.exists()) return;
-        try {
-            Scanner scanner = new Scanner(arenaFile);
-            while (scanner.hasNextLine()) {
-                String linha = scanner.nextLine();
-                String[] partes = linha.split(":");
-                if (partes.length < 2) continue;
+        if (config == null) {
+            boolean debug = PrimeLeagueX1.getInstance().getConfig().getBoolean("debug");
+            if (debug) {
+                Bukkit.getLogger().severe(ChatColor.translateAlternateColorCodes('&', MessageUtils.getMensagem("arena.erro_carregar_config")));
+            }
+            return;
+        }
 
-                Location loc = stringToLoc(partes[1]);
-                if (loc == null) continue;
-
-                switch (partes[0]) {
-                    case "pos1":
-                        pos1 = loc;
-                        Bukkit.getLogger().info("[X1] Posição 1 carregada: " + locToString(loc));
-                        break;
-                    case "pos2":
-                        pos2 = loc;
-                        Bukkit.getLogger().info("[X1] Posição 2 carregada: " + locToString(loc));
-                        break;
-                    case "camarote":
-                        camarote = loc;
-                        Bukkit.getLogger().info("[X1] Camarote carregado: " + locToString(loc));
-                        break;
+        if (config.contains("arena.pos1")) {
+            pos1 = stringToLoc(config.getString("arena.pos1"));
+            if (pos1 != null) {
+                boolean debug = PrimeLeagueX1.getInstance().getConfig().getBoolean("debug");
+                if (debug) {
+                    Bukkit.getLogger().info(ChatColor.translateAlternateColorCodes('&', MessageUtils.getMensagem("arena.loaded_pos1").replace("{location}", locToString(pos1))));
+                }
+            } else {
+                boolean debug = PrimeLeagueX1.getInstance().getConfig().getBoolean("debug");
+                if (debug) {
+                    Bukkit.getLogger().severe(ChatColor.translateAlternateColorCodes('&', MessageUtils.getMensagem("arena.erro_pos1")));
                 }
             }
-            scanner.close();
-            Bukkit.getLogger().info("[X1] Arena carregada com sucesso!");
-
-        } catch (IOException e) {
-            Bukkit.getLogger().severe("[X1] Erro ao carregar a arena do X1!");
-            e.printStackTrace();
+        }
+        if (config.contains("arena.pos2")) {
+            pos2 = stringToLoc(config.getString("arena.pos2"));
+            if (pos2 != null) {
+                boolean debug = PrimeLeagueX1.getInstance().getConfig().getBoolean("debug");
+                if (debug) {
+                    Bukkit.getLogger().info(ChatColor.translateAlternateColorCodes('&', MessageUtils.getMensagem("arena.loaded_pos2").replace("{location}", locToString(pos2))));
+                }
+            } else {
+                boolean debug = PrimeLeagueX1.getInstance().getConfig().getBoolean("debug");
+                if (debug) {
+                    Bukkit.getLogger().severe(ChatColor.translateAlternateColorCodes('&', MessageUtils.getMensagem("arena.erro_pos2")));
+                }
+            }
+        }
+        if (config.contains("arena.camarote")) {
+            camarote = stringToLoc(config.getString("arena.camarote"));
+            if (camarote != null) {
+                boolean debug = PrimeLeagueX1.getInstance().getConfig().getBoolean("debug");
+                if (debug) {
+                    Bukkit.getLogger().info(ChatColor.translateAlternateColorCodes('&', MessageUtils.getMensagem("arena.loaded_camarote").replace("{location}", locToString(camarote))));
+                }
+            } else {
+                boolean debug = PrimeLeagueX1.getInstance().getConfig().getBoolean("debug");
+                if (debug) {
+                    Bukkit.getLogger().severe(ChatColor.translateAlternateColorCodes('&', MessageUtils.getMensagem("arena.erro_camarote")));
+                }
+            }
         }
     }
 
-    /**
-     * Converte uma localização em String para salvar no arquivo.
-     */
     private static String locToString(Location loc) {
+        if (loc == null || loc.getWorld() == null) return "Desconhecido";
         return loc.getWorld().getName() + "," + loc.getX() + "," + loc.getY() + "," + loc.getZ();
     }
 
-    /**
-     * Converte uma String salva no arquivo em um objeto Location.
-     */
     private static Location stringToLoc(String str) {
+        if (str == null) return null;
         String[] coords = str.split(",");
         if (coords.length < 4) return null;
 
         World world = Bukkit.getWorld(coords[0]);
         if (world == null) {
-            Bukkit.getLogger().severe("[X1] Erro: Mundo '" + coords[0] + "' não encontrado! Arena não foi carregada corretamente.");
+            boolean debug = PrimeLeagueX1.getInstance().getConfig().getBoolean("debug");
+            if (debug) {
+                Bukkit.getLogger().severe(ChatColor.translateAlternateColorCodes('&', MessageUtils.getMensagem("arena.world_not_found").replace("{world}", coords[0])));
+            }
             return null;
         }
 
@@ -155,7 +171,10 @@ public class ArenaManager {
             double z = Double.parseDouble(coords[3]);
             return new Location(world, x, y, z);
         } catch (NumberFormatException e) {
-            Bukkit.getLogger().severe("[X1] Erro ao converter coordenadas para número.");
+            boolean debug = PrimeLeagueX1.getInstance().getConfig().getBoolean("debug");
+            if (debug) {
+                Bukkit.getLogger().severe(ChatColor.translateAlternateColorCodes('&', MessageUtils.getMensagem("arena.erro_coordenadas")));
+            }
             return null;
         }
     }

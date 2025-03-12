@@ -1,6 +1,7 @@
 package me.freitas.x1.managers;
 import me.freitas.x1.PrimeLeagueX1;
 
+import me.freitas.x1.utils.MessageUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -14,31 +15,45 @@ public class ChallengeManager {
     private static final Map<String, Boolean> desafiosArena = new HashMap<String, Boolean>();
     private static final Map<String, String> desafios = new HashMap<String, String>();
     private static final Map<String, Long> desafiosExpiracao = new HashMap<String, Long>();
-    private static final long TEMPO_EXPIRACAO = 30 * 1000; // 30 segundos
+    private static final Map<String, Boolean> desafiosPendentes = new HashMap<>();
+    private static long TEMPO_EXPIRACAO;
+
+    static {
+        reloadConfig();
+    }
+
+    public static void reloadConfig() {
+        TEMPO_EXPIRACAO = PrimeLeagueX1.getInstance().getConfig().getLong("x1_timeout", 180) * 1000;
+    }
 
     /**
      * Desafia um jogador para um X1.
      */
     public static void desafiar(Player desafiante, Player alvo, boolean usarArena) {
+        if (desafiosPendentes.containsKey(desafiante.getName())) {
+            desafiante.sendMessage(MessageUtils.getMessage("x1.desafio.pendente"));
+            return;
+        }
+
         if (desafiante.equals(alvo)) {
-            desafiante.sendMessage(ChatColor.RED + "❌ Você não pode desafiar a si mesmo para um X1!");
+            desafiante.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.auto"));
             return;
         }
 
         if (desafios.containsKey(desafiante.getName())) {
-            desafiante.sendMessage(ChatColor.RED + "⚠ Você já desafiou um jogador! Aguarde a resposta.");
+            desafiante.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.jaDesafiou"));
             return;
         }
 
         if (desafios.containsValue(desafiante.getName())) {
-            desafiante.sendMessage(ChatColor.RED + "⚠ Você já foi desafiado! Aceite ou recuse primeiro.");
+            desafiante.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.jaFoiDesafiado"));
             return;
         }
 
         // Se o X1 for no local atual, verificar distância entre os jogadores
         if (!usarArena) {
             if (!desafiante.getWorld().equals(alvo.getWorld())) {
-                desafiante.sendMessage(ChatColor.RED + "❌ Você está em um mundo diferente de " + alvo.getName() + " e não pode desafiá-lo para um X1 local!");
+                desafiante.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.mundoDiferente").replace("{player}", alvo.getName()));
                 return;
             }
 
@@ -46,7 +61,7 @@ public class ChallengeManager {
             double distancia = desafiante.getLocation().distance(alvo.getLocation());
 
             if (distancia > 10) {
-                desafiante.sendMessage(ChatColor.RED + "❌ Você está muito longe de " + alvo.getName() + " para desafiá-lo!");
+                desafiante.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.muitoLonge").replace("{player}", alvo.getName()));
                 return;
             }
         }
@@ -67,13 +82,13 @@ public class ChallengeManager {
         String desafianteNome = encontrarDesafiante(alvo.getName());
 
         if (desafianteNome == null) {
-            alvo.sendMessage(ChatColor.RED + "❌ Você não tem desafios pendentes!");
+            alvo.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.semDesafios"));
             return;
         }
 
         Player desafiante = Bukkit.getPlayer(desafianteNome);
         if (desafiante == null) {
-            alvo.sendMessage(ChatColor.RED + "⚠ O jogador que te desafiou não está mais online.");
+            alvo.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.jogadorOffline"));
             desafios.remove(desafianteNome);
             return;
         }
@@ -82,6 +97,14 @@ public class ChallengeManager {
         desafiosExpiracao.remove(alvo.getName());
 
         boolean usarArena = desafiosArena.containsKey(desafiante.getName()) ? desafiosArena.get(desafiante.getName()) : false;
+
+        // ✅ NOVA VERIFICAÇÃO: Impede X1 se a arena não estiver configurada
+        if (usarArena && (ArenaManager.getPos1() == null || ArenaManager.getPos2() == null)) {
+            desafiante.sendMessage(MessageUtils.getMessage("arena.nao_configurada"));
+            alvo.sendMessage(MessageUtils.getMessage("arena.nao_configurada"));
+            return;
+        }
+
         DuelManager.iniciarDuelo(desafiante, alvo, usarArena);
     }
 
@@ -92,13 +115,13 @@ public class ChallengeManager {
         String desafianteNome = encontrarDesafiante(alvo.getName());
 
         if (desafianteNome == null) {
-            alvo.sendMessage(ChatColor.RED + "❌ Você não tem desafios pendentes!");
+            alvo.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.semDesafios"));
             return;
         }
 
         Player desafiante = Bukkit.getPlayer(desafianteNome);
         if (desafiante != null) {
-            desafiante.sendMessage(ChatColor.RED + "❌ " + alvo.getName() + " recusou seu desafio!");
+            desafiante.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.recusou").replace("{player}", alvo.getName()));
         }
 
         // Remover desafio corretamente de todas as listas
@@ -108,7 +131,7 @@ public class ChallengeManager {
         desafiosAtivos.remove(desafianteNome);
         desafiosAtivos.remove(alvo.getName());
 
-        alvo.sendMessage(ChatColor.GREEN + "✅ Você recusou o desafio.");
+        alvo.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.recusouSucesso"));
     }
 
     /**
@@ -116,22 +139,20 @@ public class ChallengeManager {
      */
     public static void cancelarDesafio(Player desafiante) {
         if (!desafios.containsKey(desafiante.getName())) {
-            desafiante.sendMessage(ChatColor.RED + "❌ Você não tem desafios para cancelar.");
+            desafiante.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.semDesafiosCancelar"));
             return;
         }
 
         String alvoNome = desafios.get(desafiante.getName());
 
         if (alvoNome == null) {
-            desafiante.sendMessage(ChatColor.RED + "⚠ O desafio já foi removido ou expirou.");
+            desafiante.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.jaRemovido"));
             return;
         }
 
         Player alvo = Bukkit.getPlayer(alvoNome);
 
-        if (alvo != null) {
-            alvo.sendMessage(ChatColor.RED + "⚠ " + desafiante.getName() + " cancelou o desafio.");
-        }
+        desafiante.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.cancelado").replace("{player}", desafiante.getName()));
 
         // ✅ **Remove corretamente de todos os mapas**
         desafios.remove(desafiante.getName());
@@ -143,7 +164,7 @@ public class ChallengeManager {
         desafiosAtivos.remove(desafiante.getName());
         desafiosAtivos.remove(alvoNome);
 
-        desafiante.sendMessage(ChatColor.GREEN + "✅ Você cancelou o desafio.");
+        desafiante.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.cancelouSucesso"));
     }
 
     /**
@@ -199,15 +220,19 @@ public class ChallengeManager {
      * Envia mensagens aos jogadores envolvidos em um desafio.
      */
     private static void enviarMensagemDesafio(Player desafiante, Player alvo, boolean usarArena) {
-        desafiante.sendMessage(ChatColor.AQUA + "[X1] " + ChatColor.GREEN + "🎯 Você desafiou " + ChatColor.RED + alvo.getName() + ChatColor.GREEN + " para um X1!");
+        desafiante.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.enviar")
+                .replace("{player}", alvo.getName()));
 
         if (usarArena) {
-            alvo.sendMessage(ChatColor.AQUA + "[X1] " + ChatColor.RED + desafiante.getName() + ChatColor.AQUA + " desafiou você para um X1 na ARENA!");
+            alvo.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.receber.arena")
+                    .replace("{player}", desafiante.getName()));
         } else {
-            alvo.sendMessage(ChatColor.AQUA + "[X1] " + ChatColor.RED + desafiante.getName() + ChatColor.AQUA + " desafiou você para um X1 no LOCAL ATUAL!");
+            alvo.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.receber.local")
+                    .replace("{player}", desafiante.getName()));
         }
 
-        alvo.sendMessage(ChatColor.AQUA + "[X1] " + ChatColor.YELLOW + "Digite: /x1 aceitar " + desafiante.getName() + ChatColor.AQUA + " para aceitar!");
+        alvo.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.como_aceitar")
+                .replace("{player}", desafiante.getName()));
     }
 
     /**
@@ -218,10 +243,10 @@ public class ChallengeManager {
         Player alvoPlayer = Bukkit.getPlayer(alvo);
 
         if (alvoPlayer != null) {
-            alvoPlayer.sendMessage(ChatColor.RED + "⏳ O desafio de X1 expirou.");
+            alvoPlayer.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.expirou"));
         }
         if (desafiantePlayer != null) {
-            desafiantePlayer.sendMessage(ChatColor.RED + "⏳ Seu desafio contra " + alvo + " expirou.");
+            desafiantePlayer.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.expirouDesafiante").replace("{player}", alvo));
         }
     }
 
@@ -230,8 +255,8 @@ public class ChallengeManager {
             @Override
             public void run() {
                 if (desafios.containsKey(desafiante.getName())) {
-                    desafiante.sendMessage(ChatColor.RED + "⏳ O desafio expirou!");
-                    desafiado.sendMessage(ChatColor.RED + "⏳ Seu desafio contra " + desafiante.getName() + " expirou!");
+                    desafiante.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.expirouDesafio"));
+                    desafiado.sendMessage(PrimeLeagueX1.getInstance().getMensagem("mensagens.desafio.expirouDesafiado").replace("{player}", desafiante.getName()));
 
                     // ✅ **Removendo corretamente de TODOS os mapas**
                     desafios.remove(desafiante.getName());
@@ -244,7 +269,7 @@ public class ChallengeManager {
                     desafiosAtivos.remove(desafiado.getName());
                 }
             }
-        }, 20 * 30); // Expira após 30 segundos (600 ticks)
+        }, 20 * (TEMPO_EXPIRACAO / 1000)); // Expira após o tempo configurado
     }
 
     public static void removerDesafio(String desafiante, String desafiado) {

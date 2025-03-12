@@ -1,5 +1,8 @@
     package me.freitas.x1.commands;
 
+import me.freitas.x1.PrimeLeagueX1;
+import me.freitas.x1.utils.MessageUtils;
+
     import me.freitas.x1.managers.StatsManager;
     import me.freitas.x1.managers.ArenaManager;
     import me.freitas.x1.managers.ChallengeManager;
@@ -25,14 +28,29 @@
     import java.util.Arrays;
 
     public class X1Command implements CommandExecutor, Listener {
+        private final PrimeLeagueX1 plugin;
+
+        public X1Command(PrimeLeagueX1 plugin) {
+            this.plugin = plugin;
+        }
+    /**
+     * Busca uma mensagem no arquivo de configuração e substitui placeholders.
+     */
+    private String getMessage(String key, String... placeholders) {
+        String message = MessageUtils.getMessage(key);
+        for (int i = 0; i < placeholders.length; i += 2) {
+            message = message.replace(placeholders[i], placeholders[i+1]);
+        }
+        return message;
+    }
         private static final Map<String, String> desafiosPendentes = new HashMap<String, String>();
 
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-            if (!(sender instanceof Player)) {
-                sender.sendMessage(ChatColor.RED + "Apenas jogadores podem usar esse comando!");
-                return true;
-            }
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(MessageUtils.getMessage("comando.somente_jogadores"));
+            return true;
+        }
 
             Player player = (Player) sender;
 
@@ -69,16 +87,16 @@
                 case "revanche":
                     solicitarRevanche(player);
                     break;
-                default:
-                    player.sendMessage(ChatColor.RED + "Comando inválido! Use /x1 para ver os comandos disponíveis.");
+                    default:
+                    player.sendMessage(MessageUtils.getMessage("comando.invalido"));
             }
 
             return true;
         }
 
         private void desafiarJogador(Player player, String[] args) {
-            if (args.length < 2) {
-                player.sendMessage(ChatColor.RED + "Uso correto: /x1 desafiar <jogador>");
+                if (args.length < 2) {
+                player.sendMessage(MessageUtils.getMessage("x1.desafio.uso_correto"));
                 return;
             }
 
@@ -87,29 +105,33 @@
 
             // ✅ **Impede abrir o menu se já tiver um desafio pendente**
             if (desafiosPendentes.containsKey(desafianteNome) || desafiosPendentes.containsValue(alvoNome)) {
-                player.sendMessage(ChatColor.RED + "⚠ Você já desafiou " + alvoNome + "! Aguarde a resposta.");
+                player.sendMessage(MessageUtils.getMessage("x1.desafio.ja_desafiou").replace("{player}", alvoNome));
+
+                // Remove desafios travados, garantindo que o jogador possa desafiar novamente
+                desafiosPendentes.remove(desafianteNome);
+                desafiosPendentes.remove(alvoNome);
                 return;
             }
 
             // ✅ **Verifica no ChallengeManager se o desafio realmente foi cancelado**
             if (ChallengeManager.temDesafioAtivo(player)) {
-                player.sendMessage(ChatColor.RED + "⚠ Você já tem um desafio pendente. Aguarde antes de desafiar novamente.");
+                player.sendMessage(MessageUtils.getMessage("x1.desafio.pendente"));
                 return;
             }
 
             Player target = Bukkit.getPlayer(alvoNome);
             if (target == null || !target.isOnline()) {
-                player.sendMessage(ChatColor.RED + "O jogador " + alvoNome + " não está online.");
+                player.sendMessage(MessageUtils.getMessage("x1.desafio.jogador_offline").replace("{player}", alvoNome));
                 return;
             }
 
             if (desafianteNome.equalsIgnoreCase(alvoNome)) {
-                player.sendMessage(ChatColor.RED + "Você não pode desafiar a si mesmo para um X1!");
+                player.sendMessage(MessageUtils.getMessage("x1.desafio.erro"));
                 return;
             }
 
             if (DuelManager.estaEmDuelo(desafianteNome) || DuelManager.estaEmDuelo(alvoNome)) {
-                player.sendMessage(ChatColor.RED + "Você ou seu adversário já estão em um X1!");
+                player.sendMessage(MessageUtils.getMessage("x1.desafio.ocupado"));
                 return;
             }
 
@@ -124,10 +146,10 @@
             Inventory menu = event.getInventory();
 
             // Verifica se o menu fechado é o de seleção do X1
-            if (menu.getTitle().equals(ChatColor.DARK_BLUE + "Usar arena?")) {
+            if (event.getView().getTitle().equals(ChatColor.DARK_BLUE + "Usar arena?")) {
                 if (desafiosPendentes.containsKey(player.getName())) {
                     desafiosPendentes.remove(player.getName());
-                    player.sendMessage(ChatColor.RED + "❌ Você fechou o menu do X1. Seu desafio foi cancelado.");
+                    player.sendMessage(MessageUtils.getMessage("x1.desafio.cancelado"));
                 }
             }
         }
@@ -173,8 +195,14 @@
             Inventory menu = event.getInventory();
 
             // Verifica se o menu aberto é o de seleção do X1
-            if (menu.getTitle().equals(ChatColor.DARK_BLUE + "Usar arena?")) {
-                event.setCancelled(true); // Impede que o jogador remova os itens do menu
+            if (event.getView().getTitle().equals(ChatColor.DARK_BLUE + "Usar arena?")) {
+                event.setCancelled(true);
+
+                // Verifica se o jogador ainda está registrado no sistema de desafios
+                if (!desafiosPendentes.containsKey(player.getName())) {
+                    player.sendMessage(MessageUtils.getMessage("x1.desafio.erro"));
+                    return;
+                }
 
                 ItemStack item = event.getCurrentItem();
                 if (item == null || !item.hasItemMeta()) return;
@@ -184,7 +212,7 @@
 
                 Player desafiado = Bukkit.getPlayer(desafiadoNome);
                 if (desafiado == null) {
-                    player.sendMessage(ChatColor.RED + "❌ O jogador desafiado saiu do jogo!");
+                player.sendMessage(MessageUtils.getMessage("x1.desafio.jogador_saiu"));
                     desafiosPendentes.remove(player.getName());
                     return;
                 }
@@ -194,10 +222,10 @@
                     short data = item.getDurability();
 
                     if (data == 5) { // Lã verde → Arena Fixa
-                        player.sendMessage(ChatColor.GREEN + "✅ Você escolheu a Arena Fixa!");
+                        player.sendMessage(MessageUtils.getMessage("x1.desafio.arena_fixa"));
                         ChallengeManager.desafiar(player, desafiado, true);
                     } else if (data == 14) { // Lã vermelha → Local Atual
-                        player.sendMessage(ChatColor.YELLOW + "✅ Você escolheu o Local Atual!");
+                        player.sendMessage(MessageUtils.getMessage("x1.desafio.local_atual"));
                         ChallengeManager.desafiar(player, desafiado, false);
                     }
 
@@ -209,7 +237,7 @@
 
         private void aceitarDesafio(Player player) {
             if (DuelManager.estaEmDuelo(player.getName())) {
-                player.sendMessage(ChatColor.RED + "Você já está em um X1!");
+                player.sendMessage(MessageUtils.getMessage("x1.aceitar.erro"));
                 return;
             }
 
@@ -222,7 +250,7 @@
 
         private void cancelarDesafio(Player player) {
             if (!ChallengeManager.temDesafioAtivo(player)) {
-                player.sendMessage(ChatColor.RED + "Você não tem desafios pendentes para cancelar.");
+                player.sendMessage(MessageUtils.getMessage("x1.cancelar.erro"));
                 return;
             }
 
@@ -231,42 +259,42 @@
 
         private void configurarArena(Player player, String[] args) {
             if (args.length < 2) {
-                player.sendMessage(ChatColor.RED + "Uso correto: /x1 set pos1|pos2|camarote");
+                player.sendMessage(MessageUtils.getMessage("x1.set.uso_correto"));
                 return;
             }
 
             String tipo = args[1].toLowerCase();
             switch (tipo) {
-                case "pos1":
-                    ArenaManager.setPos1(player.getLocation());
-                    player.sendMessage(ChatColor.GREEN + "✔ Posição 1 da arena definida com sucesso!");
-                    break;
-                case "pos2":
-                    ArenaManager.setPos2(player.getLocation());
-                    player.sendMessage(ChatColor.GREEN + "✔ Posição 2 da arena definida com sucesso!");
-                    break;
-                case "camarote":
-                    ArenaManager.setCamarote(player.getLocation());
-                    player.sendMessage(ChatColor.GREEN + "✔ Local do camarote definido com sucesso!");
-                    break;
-                default:
-                    player.sendMessage(ChatColor.RED + "Opção inválida! Use /x1 set pos1|pos2|camarote.");
+                    case "pos1":
+                        ArenaManager.setPos1(player.getLocation());
+                        player.sendMessage(MessageUtils.getMessage("x1.set.pos1_sucesso"));
+                        break;
+                    case "pos2":
+                        ArenaManager.setPos2(player.getLocation());
+                        player.sendMessage(MessageUtils.getMessage("x1.set.pos2_sucesso"));
+                        break;
+                    case "camarote":
+                        ArenaManager.setCamarote(player.getLocation());
+                        player.sendMessage(MessageUtils.getMessage("x1.set.camarote_sucesso"));
+                        break;
+                    default:
+                        player.sendMessage(MessageUtils.getMessage("x1.set.invalido"));
             }
         }
 
         private void teleportarCamarote(Player player) {
             Location camarote = ArenaManager.getCamarote();
             if (camarote == null) {
-                player.sendMessage(ChatColor.RED + "❌ O local do camarote ainda não foi configurado!");
+                player.sendMessage(MessageUtils.getMessage("x1.camarote.erro"));
                 return;
             }
 
             player.teleport(camarote);
-            player.sendMessage(ChatColor.YELLOW + "🚀 Você foi teleportado para o camarote para assistir aos duelos!");
+            player.sendMessage(MessageUtils.getMessage("x1.camarote.sucesso"));
         }
 
         private void solicitarRevanche(Player player) {
-            player.sendMessage(ChatColor.YELLOW + "🔄 Sistema de revanche ainda será implementado!");
+            player.sendMessage(MessageUtils.getMessage("x1.revanche"));
         }
 
         private void exibirRanking(Player player) {
